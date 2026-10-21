@@ -69,7 +69,25 @@
     audio.onerror = function () { $("voice-status").textContent = "Maya's audio could not play. You can continue by typing."; finish(); };
     audio.play().catch(function () { $("voice-status").textContent = "Maya's audio could not start. You can continue by typing."; finish(); });
   }
+  var speechTurn = 0;
   function say(text, done) {
+    var turn = ++speechTurn, chunks = [], chunk = "";
+    // The voice endpoint accepts 900 characters. Keep every word and play
+    // chunks serially, rather than truncating longer coaching responses.
+    String(text).split(/\s+/).forEach(function (word) {
+      if (chunk.length + word.length + 1 > 750 && chunk) { chunks.push(chunk); chunk = ""; }
+      chunk += (chunk ? " " : "") + word;
+    });
+    if (chunk) { chunks.push(chunk); }
+    function deliver() {
+      if (turn !== speechTurn) { return; }
+      if (!chunks.length) { if (done) { done(); } return; }
+      sayOne(chunks.shift(), deliver);
+    }
+    stopCoachAudio();
+    deliver();
+  }
+  function sayOne(text, done) {
     // Every spoken coach message uses Google Chirp.  We deliberately do not
     // fall back to a device voice: a changed voice is confusing in a blind
     // user's interview flow.
@@ -162,10 +180,24 @@
     fallbackStart(selectedTrack(), questionWasAlreadySpoken);
   }
   function offlineEvaluate(answer) {
+    if (!current.rubric) {
+      var matching = fallbackTracks[selectedTrack()].qs.find(function (q) { return q.text === current.question; });
+      current.rubric = matching ? matching.rubric : [];
+    }
     var lower = answer.toLowerCase(), hits = current.rubric.filter(function (group) { return group.some(function (word) { return lower.indexOf(word) !== -1; }); });
     var missing = current.rubric.filter(function (group) { return !group.some(function (word) { return lower.indexOf(word) !== -1; }); });
-    var score = Math.round(100 * hits.length / current.rubric.length); fallbackScores.push(score);
-    return {coverage_percent: score, strength: hits.length ? "You covered " + hits.length + " of " + current.rubric.length + " key areas." : "You began responding, but the key points were not yet clear.", next_step: missing.length ? "To make this hiring-ready, add " + missing[0][0] + "." : "Strong answer. Add one short example to make it even more persuasive."};
+    var score = current.rubric.length ? Math.round(100 * hits.length / current.rubric.length) : 0; fallbackScores.push(score);
+    var tips = {
+      keyboard: "Describe a keyboard-only check: use Tab and Shift Tab to follow focus order, then Enter or Space to operate controls. Check visible focus and keyboard traps.",
+      "screen reader": "Explain how you would use NVDA or another screen reader to check names, roles, headings and form errors.",
+      heading: "Check headings and field labels so the page structure and each control's purpose are announced clearly.",
+      test: "Walk through a real task such as submitting a form, document any barrier and retest the fix."
+    };
+    var strength = hits.length ? "Your answer mentions " + hits.length + " of the practice areas. That is a useful starting point, but naming topics alone does not show how you would do the work." : "Thank you for making a start. Your answer needs more detail about how you would carry out the work.";
+    if (/automated|automation/i.test(answer) && missing.length) { strength = "An automated checker is a useful starting point, but it cannot replace hands-on keyboard and screen-reader testing."; }
+    var nextStep = missing.length ? missing.slice(0,2).map(function (group) { return tips[group[0]] || "Explain how you would check " + group[0] + ", which technique you would use, and how you would verify the result with a concrete example."; }).join(" ") : "Make your answer more convincing with one concrete example: describe the situation, a barrier you found, the action you took and how you verified the fix.";
+    var retry = "Would you like to try that answer again using this feedback? Say retry, or say next question to continue.";
+    return {mode:"offline", coverage_percent: score, strength: strength, next_step: nextStep, retry_prompt: retry, spoken_summary: strength + " " + nextStep + " " + retry};
   }
   async function evaluate() {
     var answer = $("answer").value.trim(); if (!answer) { $("feedback").textContent = "Please give an answer before requesting feedback."; $("feedback").hidden = false; return; }
@@ -174,9 +206,9 @@
     catch (_) { feedback = offlineEvaluate(answer); serverStatus("The AI coach is temporarily unavailable. Offline practice feedback is active.", false); }
     var detail = feedback.missing && feedback.missing.length ? " Missing areas: " + feedback.missing.slice(0, 2).join(" and ") + "." : "";
     var feedbackSource = feedback.mode === "bedrock" ? "AWS Bedrock coaching feedback" : "Hiring-style practice feedback";
-    $("feedback").innerHTML = "<strong>" + feedbackSource + ": " + feedback.coverage_percent + "% rubric coverage.</strong><br>" + feedback.strength + "<br>" + feedback.next_step + detail;
+    $("feedback").textContent = feedbackSource + ": " + feedback.coverage_percent + "% rubric coverage. " + feedback.strength + " " + feedback.next_step + detail + " " + (feedback.retry_prompt || "Try again using this feedback, or continue to the next question.");
     $("feedback").hidden = false; $("submit").hidden = true; $("retry").hidden = false; $("next").hidden = false; $("next").textContent = current.number === current.total ? "Finish practice" : "Next question";
-    if (voiceFirst) { say((feedback.spoken_summary || (feedback.strength + " " + feedback.next_step)) + " Say retry, next question, or more detail.", command); }
+    if (voiceFirst) { say((feedback.spoken_summary || (feedback.strength + " " + feedback.next_step)) + (feedback.retry_prompt ? "" : " Would you like to try again? Say retry or next question."), command); }
   }
   async function next() {
     if (serverReady && sessionId) { try { var reply = await callTool("next_question", {session_id: sessionId}); if (reply.complete) { finish(reply); } else { current = reply; announceQuestion(); } return; } catch (_) { serverReady = false; } }
@@ -197,9 +229,10 @@
     isListening = true;
     recognizer.lang = chosen && /^en-IN/i.test(chosen.lang) ? "en-IN" : "en-US"; recognizer.interimResults = false; recognizer.maxAlternatives = 1;
     recognizer.onstart = function () { $("listen").disabled = true; $("voice-status").textContent = "Maya is listening now. Speak your answer when you are ready."; };
-    recognizer.onresult = function (event) { heard = true; result(event.results[0][0].transcript); };
+    var transcript = "";
+    recognizer.onresult = function (event) { heard = true; transcript = Array.from(event.results).map(function (item) { return item[0].transcript; }).join(" "); };
     recognizer.onerror = function (event) { $("voice-status").textContent = event.error === "not-allowed" ? "Microphone access was not granted. You can type instead." : "I could not hear that clearly. Please try again or type your answer."; };
-    recognizer.onend = function () { isListening = false; $("listen").disabled = false; if (!heard && noSpeech) { noSpeech(); } if (end) { end(); } };
+    recognizer.onend = function () { isListening = false; $("listen").disabled = false; if (heard) { result(transcript); } else if (noSpeech) { noSpeech(); } if (end) { end(); } };
     try { recognizer.start(); } catch (_) { isListening = false; $("voice-status").textContent = "Could not start the microphone. Please type your answer instead."; $("listen").disabled = false; }
   }
   function listen(attempt) {
@@ -246,7 +279,7 @@
     $("voice-status").textContent = "Maya is preparing your practice session.";
     playWelcome(selectedTrack(), function () { preparedSession.then(function (start) { begin(true, start, true); }).finally(function () { isLaunching = false; }); });
   }; $("begin-typing").onclick = function () { begin(false); }; $("listen").onclick = listen; $("submit").onclick = evaluate;
-  $("retry").onclick = function () { $("answer").focus(); $("feedback").hidden = true; $("submit").hidden = false; $("retry").hidden = true; $("next").hidden = true; if (voiceFirst) { listen(); } };
+  $("retry").onclick = function () { $("answer").value = ""; $("answer").focus(); $("feedback").hidden = true; $("submit").hidden = false; $("retry").hidden = true; $("next").hidden = true; if (voiceFirst) { say("Let's try the same question again. " + current.question + " Use the feedback to add a concrete example. I will listen after a short pause.", function () { window.setTimeout(function () { listen(0); }, 350); }); } };
   $("next").onclick = next; $("again").onclick = function () { $("start").hidden = false; $("summary-card").hidden = true; current = null; $("begin").disabled = false; $("begin").removeAttribute("aria-disabled"); $("begin").textContent = "Start Maya voice practice"; };
   if (!Recognition) { $("listen").disabled = true; }
   connectCoach();
