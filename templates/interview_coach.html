@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/interview_coach.css') }}">
+<section class="page-head"><div class="container coach-shell">
+  <p class="eyebrow">Vision-Aid · Ability Fellows · Working prototype</p>
+  <div class="coach-brand" aria-label="Maya, the Ability Fellows Interview Coach">
+    <span class="coach-brand-icon" role="img" aria-label="microphone with sparkles">🎙️✨</span>
+    <div><p class="coach-kicker">Meet Maya</p><h1>Interview Coach</h1></div>
+  </div>
+  <p class="lede">Your cheerful, voice-first practice partner for the interview ahead: answer by speech or typing, receive focused feedback, and improve on the next try.</p>
+  <p class="coach-muted">Built by Vision-Aid as an MCP-enabled practice prototype for Alexa+. It is interview practice—not an automated hiring decision.</p>
+</div></section>
+<section class="section coach-section" aria-labelledby="coach-start-heading"><div class="container coach-shell">
+  <div class="coach-card" id="start">
+    <div class="coach-launch-panel">
+      <h2 id="coach-start-heading">Start practicing with Maya</h2>
+      <p id="launch-instructions">Maya will introduce the Ability Fellows program, explain the practice flow, and begin with Digital Accessibility Testing. Choose another track below before you start if you prefer.</p>
+      <button id="begin" type="button" class="btn btn-primary coach-launch-btn" aria-describedby="launch-instructions voice-permission-note">Start Maya voice practice<span class="sr-only">. This starts Maya's female voice and asks for microphone permission.</span></button>
+      <p id="voice-permission-note" class="coach-muted">On iPhone and Android, one tap is required before a website may play sound or ask for microphone access.</p>
+    </div>
+    <h2>Choose a practice track</h2>
+    <fieldset><legend>Career track</legend><div class="coach-options">
+      <label class="coach-option"><input type="radio" name="track" value="accessibility" checked><span><strong>Digital accessibility testing</strong><br>Keyboard use, screen readers, semantic HTML, and ARIA.</span></label>
+      <label class="coach-option"><input type="radio" name="track" value="fullstack"><span><strong>Full-stack development</strong><br>Debugging, performance, and data protection.</span></label>
+      <label class="coach-option"><input type="radio" name="track" value="marketing"><span><strong>Digital marketing</strong><br>Audience, campaign performance, and accessible content.</span></label>
+    </div></fieldset>
+    <div hidden><label for="voice-choice">Browser voice</label><select id="voice-choice"><option>Loading available voices…</option></select></div>
+    <p id="voice-choice-note" class="coach-muted">Maya uses the same warm Indian-English Google Chirp voice throughout a spoken practice session.</p>
+    <p id="coach-server-status" class="coach-connection" role="status">Connecting to the coach server…</p>
+    <button id="begin-typing" type="button" class="btn btn-secondary">Begin with typing</button>
+  </div>
+  <div class="coach-card" id="coach" hidden>
+    <p class="eyebrow" id="progress">Question 1</p><h2 id="track-title">Practice question</h2><div class="coach-question" id="question" tabindex="-1" aria-live="polite"></div>
+    <label for="answer">Your answer</label><textarea id="answer" rows="7" placeholder="Type your answer here, or use Speak your answer."></textarea>
+    <div class="coach-actions"><button id="listen" type="button" class="btn btn-secondary">Speak your answer</button><button id="submit" type="button" class="btn btn-primary">Get feedback</button></div>
+    <p id="voice-status" role="status" class="coach-muted">Microphone is off. It is requested when you choose voice practice.</p>
+    <div id="feedback" class="coach-feedback" role="status" aria-live="polite" hidden></div>
+    <div class="coach-actions"><button id="retry" type="button" class="btn btn-secondary" hidden>Retry this answer</button><button id="next" type="button" class="btn btn-primary" hidden>Next question</button></div>
+  </div>
+  <div class="coach-card" id="summary-card" hidden><h2>Practice summary</h2><div id="summary" role="status" aria-live="polite"></div><button id="again" type="button" class="btn btn-primary">Practice again</button></div>
+  <aside class="coach-privacy" aria-labelledby="coach-privacy-heading"><h2 id="coach-privacy-heading">Privacy and accessibility</h2><p>Vision-Aid does not retain your answers. When coach-server feedback is available, your answer is sent only to the coach server and its configured AI service to generate practice feedback. Speech recognition depends on browser support and may be processed by the browser provider. Typing remains available at every step.</p></aside>
+</div></section>
+<script src="{{ url_for('static', filename='js/interview_coach.js') }}?v=3.5.15" defer></script>
+{% endblock %}
