@@ -19,6 +19,8 @@ def home():
 def headers(response):
     response.headers['X-Content-Type-Options']='nosniff'
     response.headers['Cache-Control']='no-store'
+    microphone_policy = '(self)' if request.path in ('/', '/coach', '/ability-fellows/interview-coach') else '()'
+    response.headers['Permissions-Policy'] = f'camera=(), geolocation=(), microphone={microphone_policy}, payment=()'
     return response
 
 @lru_cache(maxsize=64)

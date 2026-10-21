@@ -221,19 +221,37 @@
     var text = summary.spoken_summary || ("You completed " + summary.questions_practiced + " practice questions. Your best rubric coverage was " + summary.best_coverage_percent + " percent. Keep practicing concise answers with specific details.");
     $("summary").textContent = text; if (voiceFirst) { say(text); } sessionId = null;
   }
-  function recognize(result, end, noSpeech) {
-    if (!Recognition) { $("listen").disabled = true; $("voice-status").textContent = "Speech recognition is not available in this browser. You can type your answer instead."; if (voiceFirst) { say("This browser cannot capture speech here. You can type your answer, then select Get feedback."); } return; }
+  var microphonePermission = null, microphonePermissionError = "not-allowed";
+  function microphoneFailure(code) {
+    var messages = {
+      "not-allowed": "Microphone access is blocked. Open this site's permissions, allow the microphone, then select Speak your answer. Also check your computer's microphone privacy settings.",
+      "service-not-allowed": "This browser has blocked its speech recognition service. Try opening Maya in Google Chrome, or check your browser's speech permissions. Your question stays open.",
+      "audio-capture": "No working microphone was found. Check that your microphone is connected, unmuted and selected in your browser, then select Speak your answer.",
+      "network": "The browser's speech recognition service could not connect. This is a connection problem, not a problem with your answer. Check your connection or try Google Chrome, then select Speak your answer.",
+      "policy": "This page is blocking microphone access. Reload Maya to get the latest version and open it directly on Ability Bazaar, rather than inside another app.",
+      "unsupported": "This browser does not provide speech recognition. Open Maya in Google Chrome to try voice practice. Your question stays open and typing is optional."
+    };
+    var message = messages[code] || "The microphone could not start. Check your microphone and browser permissions, then select Speak your answer. Your question stays open.";
+    $("voice-status").textContent = message;
+    $("listen").disabled = false;
+    if (voiceFirst) { say(message); }
+  }
+  async function recognize(result, end, noSpeech) {
+    if (!Recognition) { microphoneFailure("unsupported"); return; }
     if (isListening) { return; }
-    var choice = $("voice-choice"), chosen = choice && voices.find(function (item) { return item.name === choice.value; });
-    var recognizer = new Recognition(), heard = false;
     isListening = true;
-    recognizer.lang = chosen && /^en-IN/i.test(chosen.lang) ? "en-IN" : "en-US"; recognizer.interimResults = false; recognizer.maxAlternatives = 1;
+    var policy = document.permissionsPolicy || document.featurePolicy;
+    if (policy && policy.allowsFeature && !policy.allowsFeature("microphone")) { isListening = false; microphoneFailure("policy"); return; }
+    if (!microphonePermission) { microphonePermission = requestMicrophonePermission(); }
+    if (!await microphonePermission) { isListening = false; microphonePermission = null; microphoneFailure(microphonePermissionError); return; }
+    var recognizer = new Recognition(), heard = false, failure = null;
+    recognizer.lang = "en-IN"; recognizer.interimResults = true; recognizer.maxAlternatives = 1;
     recognizer.onstart = function () { $("listen").disabled = true; $("voice-status").textContent = "Maya is listening now. Speak your answer when you are ready."; };
     var transcript = "";
-    recognizer.onresult = function (event) { heard = true; transcript = Array.from(event.results).map(function (item) { return item[0].transcript; }).join(" "); };
-    recognizer.onerror = function (event) { $("voice-status").textContent = event.error === "not-allowed" ? "Microphone access was not granted. You can type instead." : "I could not hear that clearly. Please try again or type your answer."; };
-    recognizer.onend = function () { isListening = false; $("listen").disabled = false; if (heard) { result(transcript); } else if (noSpeech) { noSpeech(); } if (end) { end(); } };
-    try { recognizer.start(); } catch (_) { isListening = false; $("voice-status").textContent = "Could not start the microphone. Please type your answer instead."; $("listen").disabled = false; }
+    recognizer.onresult = function (event) { transcript = Array.from(event.results).map(function (item) { return item[0].transcript; }).join(" ").trim(); heard = !!transcript; if (heard) { $("voice-status").textContent = "Speech detected. Maya is listening."; } };
+    recognizer.onerror = function (event) { failure = event.error; };
+    recognizer.onend = function () { isListening = false; $("listen").disabled = false; if (heard) { result(transcript); } else if (failure && failure !== "no-speech") { microphonePermission = null; microphoneFailure(failure); } else if (noSpeech) { noSpeech(); } if (end) { end(); } };
+    try { recognizer.start(); } catch (_) { isListening = false; microphoneFailure("start"); }
   }
   function listen(attempt) {
     recognize(function (text) {
@@ -242,12 +260,12 @@
       $("answer").value = text; $("voice-status").textContent = "I heard your answer. Maya is preparing feedback now."; evaluate();
     }, null, function () {
       if ((attempt || 0) < 1) { say("I did not hear an answer. Please share your answer now, or say repeat question.", function () { window.setTimeout(function () { listen(1); }, 350); }); }
-      else { $("voice-status").textContent = "Maya did not hear an answer. Select Speak your answer to try again, or type your answer."; say("I still did not hear an answer. Please select Speak your answer to try again, or type your answer."); }
+      else { var waiting = "No speech was detected. I will keep this question open. Check that your microphone is unmuted, then select Speak your answer to try again. Typing is optional."; $("voice-status").textContent = waiting; say(waiting); }
     });
   }
   async function requestMicrophonePermission() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      $("voice-status").textContent = "This browser does not offer microphone access here. You can still type your answer.";
+      microphonePermissionError = "unsupported";
       return false;
     }
     try {
@@ -255,8 +273,8 @@
       stream.getTracks().forEach(function (track) { track.stop(); });
       $("voice-status").textContent = "Microphone access is ready. Maya will listen when you choose Speak your answer.";
       return true;
-    } catch (_) {
-      $("voice-status").textContent = "Microphone access was not granted. You can still continue with Maya by typing your answer.";
+    } catch (error) {
+      microphonePermissionError = error.name === "NotAllowedError" ? "not-allowed" : "audio-capture";
       return false;
     }
   }
@@ -274,11 +292,11 @@
     isLaunching = true; $("begin").disabled = true; $("begin").setAttribute("aria-disabled", "true"); $("begin").textContent = "Starting Maya…";
     unlockCoachAudio();
     // Permission is helpful, but must never hold up the first spoken question.
-    requestMicrophonePermission();
+    microphonePermission = requestMicrophonePermission();
     var preparedSession = prepareVoiceSession();
     $("voice-status").textContent = "Maya is preparing your practice session.";
     playWelcome(selectedTrack(), function () { preparedSession.then(function (start) { begin(true, start, true); }).finally(function () { isLaunching = false; }); });
-  }; $("begin-typing").onclick = function () { begin(false); }; $("listen").onclick = listen; $("submit").onclick = evaluate;
+  }; $("begin-typing").onclick = function () { begin(false); }; $("listen").onclick = function () { if (!$("feedback").hidden) { command(0); } else { listen(0); } }; $("submit").onclick = evaluate;
   $("retry").onclick = function () { $("answer").value = ""; $("answer").focus(); $("feedback").hidden = true; $("submit").hidden = false; $("retry").hidden = true; $("next").hidden = true; if (voiceFirst) { say("Let's try the same question again. " + current.question + " Use the feedback to add a concrete example. I will listen after a short pause.", function () { window.setTimeout(function () { listen(0); }, 350); }); } };
   $("next").onclick = next; $("again").onclick = function () { $("start").hidden = false; $("summary-card").hidden = true; current = null; $("begin").disabled = false; $("begin").removeAttribute("aria-disabled"); $("begin").textContent = "Start Maya voice practice"; };
   if (!Recognition) { $("listen").disabled = true; }

@@ -1,6 +1,14 @@
 from ability_ai import interview_coach_core as coach
 
 
+def test_microphone_policy_is_scoped_to_practice_pages():
+    from app import app
+    client = app.test_client()
+    for path in ('/', '/coach', '/ability-fellows/interview-coach'):
+        assert 'microphone=(self)' in client.get(path).headers['Permissions-Policy']
+    assert 'microphone=()' in client.get('/api/health').headers['Permissions-Policy']
+
+
 def test_first_answer_has_actionable_coaching_and_retry(monkeypatch):
     monkeypatch.delenv('BEDROCK_MODEL_ID', raising=False)
     session = coach.start_session('accessibility')['session_id']
