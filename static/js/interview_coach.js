@@ -199,6 +199,7 @@
     try { feedback = serverReady && sessionId ? await callTool("evaluate_answer", {session_id: sessionId, answer_text: answer, input_mode: voiceFirst ? "speech" : "typed"}) : offlineEvaluate(answer); }
     catch (_) { feedback = offlineEvaluate(answer); serverStatus("The AI coach is temporarily unavailable. Offline practice feedback is active.", false); }
     evaluating = false; $('submit').disabled = false; lastFeedback = feedback;
+    $('voice-status').textContent = 'Feedback is ready. Choose retry, help, or next question.';
     var detail = feedback.missing && feedback.missing.length ? " Areas to explore: " + feedback.missing.slice(0, 2).join(" and ") + "." : "";
     var feedbackSource = feedback.mode === "bedrock" ? "AWS Bedrock practice feedback" : "Practice feedback";
     $("feedback").textContent = feedbackSource + ". " + (feedback.comparison || '') + (feedback.stuck ? '' : (feedback.signal_label || 'This is practice guidance, not a correctness score.')) + ' ' + feedback.strength + " " + feedback.next_step + detail + " " + (feedback.retry_prompt || "Try again using this feedback, or continue to the next question.");
