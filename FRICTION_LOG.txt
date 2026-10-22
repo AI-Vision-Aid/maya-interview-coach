@@ -1,0 +1,44 @@
+Maya interview coach — hackathon friction log
+Updated October 22, 2026. Browser simulation; not a certified Alexa skill.
+
+1. Task: start voice practice on a laptop.
+Steps: open hosted Maya, start, allow the microphone, answer.
+Expected: speech recognized. Actual: Maya spoke but could not hear.
+Severity: critical.
+Cause/workaround: the host Permissions-Policy denied microphone access;
+changed only the coach page to microphone=(self), and separated permission,
+device, service and network errors from genuine silence.
+Suggestion: include permission/header checks in a voice-app readiness checklist.
+Status: header and automated error paths verified; physical-device speech
+validation remains separate from automated testing.
+
+2. Task: start practice on a slow connection.
+Steps: tap Start repeatedly while waiting.
+Expected: one conversation. Actual: overlapping audio.
+Severity: high.
+Workaround: disable Start during launch; use one cancellable audio channel.
+Suggestion: provide a reference single-flight voice state machine.
+Status: queue/cancellation tests pass; continue real-device validation.
+
+3. Task: hear detailed feedback.
+Steps: answer, then request feedback.
+Expected: complete guidance and a retry invitation.
+Actual: clipped/topic-only feedback and abrupt handoffs.
+Severity: high.
+Workaround: fuller rubric coaching and serial TTS segments with cancellation.
+Suggestion: document long-response speech handling and accessible progress cues.
+Status: fuller feedback and complete sequential audio implemented/tested.
+
+4. Task: use model-assisted coaching.
+Steps: configure optional Bedrock path and exercise hosted feedback.
+Expected: model response. Actual: observed labelled rubric fallback;
+successful hosted Bedrock inference remains unverified.
+Severity: high for model-backed assessment.
+Workaround: preserve useful deterministic practice without disguising fallback.
+Suggestion: a minimal diagnostic that confirms an actual invocation rather
+than only configuration, distinguishing model access, region and credentials.
+Status: unresolved; not represented as a successful AWS runtime demonstration.
+
+Items 1-3 are our browser/hosting integration findings, not alleged Amazon
+device defects. MCP supports explicit coaching-tool boundaries. The project
+uses the Alexa+ web-simulation route; public Alexa distribution is separate.
