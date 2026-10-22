@@ -12,13 +12,15 @@ def test_practice_retry(monkeypatch):
     first=coach.evaluate_answer(sid,'I would run an automated checker.')
     assert first['mode']=='offline'
     assert coach.retry_question(sid)['question_id']==s['question_id']
-    second=coach.evaluate_answer(sid,'Use keyboard focus and tab order, screen reader NVDA, test tasks and document issues and retest.')
+    second=coach.evaluate_answer(sid,'I would use keyboard focus and tab order to test the form, then use the screen reader NVDA to check headings and labels, document each issue and retest the completed task.')
     assert second['coverage_percent']>first['coverage_percent']
     assert coach.end_session(sid)['complete']
 
 def test_voice_off_by_default(monkeypatch):
     monkeypatch.delenv('ENABLE_GOOGLE_TTS',raising=False)
-    assert app.test_client().get('/api/interview-coach/welcome.mp3').status_code==503
+    assert app.test_client().post('/api/interview-coach/voice',json={'text':'Hello'}).status_code==503
+    # A bundled public welcome can be served without calling a paid service.
+    assert app.test_client().get('/api/interview-coach/welcome.mp3').status_code in (200,503)
     assert app.test_client().post('/api/interview-coach/voice',json={'text':3}).status_code==400
 
 def test_tracks():

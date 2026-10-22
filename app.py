@@ -18,7 +18,8 @@ def home():
 @app.after_request
 def headers(response):
     response.headers['X-Content-Type-Options']='nosniff'
-    response.headers['Cache-Control']='no-store'
+    if not request.path.startswith('/static/audio/maya/'):
+        response.headers['Cache-Control']='no-store'
     microphone_policy = '(self)' if request.path in ('/', '/coach', '/ability-fellows/interview-coach') else '()'
     response.headers['Permissions-Policy'] = f'camera=(), geolocation=(), microphone={microphone_policy}, payment=()'
     return response
@@ -46,13 +47,12 @@ def voice():
 
 @app.get('/api/interview-coach/welcome.mp3')
 def welcome():
-    track=QUESTION_BANK.get(request.args.get('track','accessibility'),QUESTION_BANK['accessibility'])
-    text=("Welcome to Maya, Vision-Aid's Ability Fellows Interview Coach. "
-          "You can practice by speaking or typing. I will ask one question at a time, "
-          "offer practical feedback, and invite you to improve your answer. "
-          "This is supportive practice, not a hiring decision. Your first question is: "
-          +track['questions'][0]['text']+" I am ready to listen when this message ends.")
-    return audio_response(text)
+    from ability_ai.coach_welcome import welcome_path, welcome_text
+    track_id = request.args.get('track', 'accessibility')
+    ready = welcome_path(track_id)
+    if ready.is_file():
+        return send_file(ready, mimetype='audio/mpeg', conditional=True, max_age=86400)
+    return audio_response(welcome_text(track_id))
 
 @app.get('/api/health')
 def health():

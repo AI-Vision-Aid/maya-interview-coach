@@ -11,10 +11,11 @@
   <p class="coach-muted">Built by Vision-Aid as an MCP-enabled practice prototype for Alexa+. It is interview practice—not an automated hiring decision.</p>
 </div></section>
 <section class="section coach-section" aria-labelledby="coach-start-heading"><div class="container coach-shell">
+  <p><a href="/ability-fellows/interview-coach" class="btn btn-secondary" id="change-practice-area">Change practice area / restart</a></p>
   <div class="coach-card" id="start">
     <div class="coach-launch-panel">
       <h2 id="coach-start-heading">Start practicing with Maya</h2>
-      <p id="launch-instructions">Maya will introduce the Ability Fellows program, explain the practice flow, and begin with Digital Accessibility Testing. Choose another track below before you start if you prefer.</p>
+      <p id="launch-instructions" role="status">Three practice areas: Digital Accessibility Testing, Full-stack Development, and Digital Marketing. Currently selected: Digital Accessibility Testing. Choose another area below before starting.</p>
       <button id="begin" type="button" class="btn btn-primary coach-launch-btn" aria-describedby="launch-instructions voice-permission-note">Start Maya voice practice<span class="sr-only">. This starts Maya's female voice and asks for microphone permission.</span></button>
       <p id="voice-permission-note" class="coach-muted">On iPhone and Android, one tap is required before a website may play sound or ask for microphone access.</p>
     </div>
@@ -34,11 +35,12 @@
     <label for="answer">Your answer</label><textarea id="answer" rows="7" placeholder="Type your answer here, or use Speak your answer."></textarea>
     <div class="coach-actions"><button id="listen" type="button" class="btn btn-secondary">Speak your answer</button><button id="submit" type="button" class="btn btn-primary">Get feedback</button></div>
     <p id="voice-status" role="status" class="coach-muted">Microphone is off. It is requested when you choose voice practice.</p>
-    <div id="feedback" class="coach-feedback" role="status" aria-live="polite" hidden></div>
+    <div id="feedback" class="coach-feedback" tabindex="-1" role="status" aria-live="polite" hidden></div>
+    <div class="coach-actions"><button id="hint" type="button" class="btn btn-secondary">Give me a hint</button><button id="sample" type="button" class="btn btn-secondary">Sample answer structure</button><button id="skip" type="button" class="btn btn-secondary">Skip this question</button></div>
     <div class="coach-actions"><button id="retry" type="button" class="btn btn-secondary" hidden>Retry this answer</button><button id="next" type="button" class="btn btn-primary" hidden>Next question</button></div>
   </div>
   <div class="coach-card" id="summary-card" hidden><h2>Practice summary</h2><div id="summary" role="status" aria-live="polite"></div><button id="again" type="button" class="btn btn-primary">Practice again</button></div>
   <aside class="coach-privacy" aria-labelledby="coach-privacy-heading"><h2 id="coach-privacy-heading">Privacy and accessibility</h2><p>Vision-Aid does not retain your answers. When coach-server feedback is available, your answer is sent only to the coach server and its configured AI service to generate practice feedback. Speech recognition depends on browser support and may be processed by the browser provider. Typing remains available at every step.</p></aside>
 </div></section>
-<script src="{{ url_for('static', filename='js/interview_coach.js') }}?v=3.5.15" defer></script>
+<script src="{{ url_for('static', filename='js/interview_coach.js') }}?v=3.5.19" defer></script>
 {% endblock %}

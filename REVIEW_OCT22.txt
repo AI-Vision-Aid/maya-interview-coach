@@ -1,0 +1,5 @@
+Maya team feedback release
+
+Implemented: three-track welcome; pre-generated welcome audio; conservative whole-word practice checks with short-answer/negation guards; no visible percentage or hiring score; short spoken feedback and more-details command; previous-attempt comparison; stuck/hint/sample/skip flow; editable retry; feedback focus; assistive-technology workplace question in each track; additional beginner marketing questions; idempotent end-session and first/best practice signals.
+
+Limits: offline checks are heuristics, not semantic correctness evaluation. They can still miss paraphrases and do not establish job readiness. Bedrock is optional and has not been verified active on the deployed app. No public Alexa skill is claimed. Real mobile speech and NVDA validation must be distinguished from automated checks. No learner answers are retained by the session store. Admin content uploads/AI publishing and persistent analytics are not yet implemented; extension hooks are not a completed admin product.
