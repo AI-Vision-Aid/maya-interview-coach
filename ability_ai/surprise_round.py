@@ -30,7 +30,13 @@ def _invoke(system, data):
         if len(_calls) >= 200:
             raise ValueError('Daily bonus limit reached')
         _calls.append(now)
-    client = boto3.client('bedrock-runtime', region_name=os.environ.get('AWS_REGION', 'us-east-1'),
+    credentials = {}
+    # Secret stores can preserve a trailing newline. Normalize only in memory;
+    # do not rotate, print, or write secret values.
+    for env, key in [('AWS_ACCESS_KEY_ID','aws_access_key_id'), ('AWS_SECRET_ACCESS_KEY','aws_secret_access_key'), ('AWS_SESSION_TOKEN','aws_session_token')]:
+        if os.environ.get(env):
+            credentials[key] = os.environ[env].strip()
+    client = boto3.client('bedrock-runtime', region_name=os.environ.get('AWS_REGION', 'us-east-1').strip(), **credentials,
                          config=Config(connect_timeout=3, read_timeout=15, retries={'max_attempts': 0}))
     response = client.converse(modelId=model, system=[{'text': system}],
         messages=[{'role':'user','content':[{'text':json.dumps(data)}]}],
