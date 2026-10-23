@@ -10,7 +10,9 @@ staff tools, deployment credentials, and private platform code.
 - Three practice tracks: Digital Accessibility Testing (including ARIA),
   Full-Stack Development, and Digital Marketing.
 - Stateful MCP tools for questions, feedback, retry, next, and session summary.
-- Transparent rubric fallback; optional Amazon Bedrock feedback through boto3.
+- Regular practice uses transparent rubric rules. The separate optional
+  “Surprise me” round uses Meta Llama through Amazon Bedrock for new questions
+  and bonus feedback without replacing the regular interview.
 - Optional Google Cloud female Indian-English speech, with a typed fallback.
 - Browser speech recognition varies by device/browser. Microphone access and
   audio require user permission and a user gesture; hosted use requires HTTPS.
@@ -36,7 +38,16 @@ Open http://127.0.0.1:8099 and choose **Begin with typing**. No cloud credential
 are needed for rubric practice. The MCP endpoint is http://127.0.0.1:8099/mcp/.
 Run `python -m pytest -q` for automated checks.
 
-### Optional AWS feedback
+### Recommended optional AWS surprise round
+
+Set `MAYA_SURPRISE_MODEL_ID=us.meta.llama3-3-70b-instruct-v1:0` and
+`AWS_REGION=us-east-1`, with server-side AWS credentials. Leave
+`BEDROCK_MODEL_ID` empty to preserve regular rubric practice. See
+[Surprise round setup and limits](docs/SURPRISE_ROUND.md).
+Say “surprise me” after ordinary feedback, answer the bonus question, then say
+“back to practice”. The original question remains available.
+
+### Legacy optional AWS feedback for regular practice
 
 Set `BEDROCK_MODEL_ID` and `AWS_REGION`; provide credentials through the normal
 AWS SDK credential chain or a least-privilege deployment role. Grant only the
@@ -74,7 +85,8 @@ The session store retains rubric IDs/scores, not answer text; answers are sent
 to Bedrock when enabled. Browser speech services and Google TTS have their own
 processing policies. In-memory sessions disappear on restart and are unsuitable
 for multiple independent workers without a shared, expiring store. This demo
-has no production authentication, abuse prevention, or cloud-spend controls.
+has no learner authentication or account-wide cloud-spend cap. The bonus
+round has bounded inputs, timeouts and per-session/process request limits.
 Bind to loopback for local review. Before public deployment add request limits,
 session expiry/capacity, origin validation, and billing safeguards. Do not
 submit confidential or identifying answers. No telemetry is required here.

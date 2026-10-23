@@ -35,3 +35,18 @@ def test_bonus_requires_question_and_valid_answer(monkeypatch):
     current['bonus']={'question':'Test?', 'guidance':'Check', 'hint':'Try'}
     assert not bonus.run(current,'answer','')['available']
     core.end_session(sid)
+
+def test_credentials_are_normalized_in_memory(monkeypatch):
+    import boto3
+    monkeypatch.setenv('MAYA_SURPRISE_MODEL_ID','test-model')
+    monkeypatch.setenv('AWS_ACCESS_KEY_ID','test-key\n')
+    monkeypatch.setenv('AWS_SECRET_ACCESS_KEY','test-secret\r\n')
+    captured={}
+    class Client:
+        def converse(self,**kw):
+            return {'output':{'message':{'content':[{'text':'{"ok":true}'}]}}}
+    def client(*args,**kw): captured.update(kw); return Client()
+    monkeypatch.setattr(boto3,'client',client)
+    assert bonus._invoke('test',{})['ok']
+    assert captured['aws_access_key_id']=='test-key'
+    assert captured['aws_secret_access_key']=='test-secret'
