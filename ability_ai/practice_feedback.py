@@ -26,16 +26,25 @@ def assess(question, answer):
         if explanatory and evidence:
             covered.append(dict(id=point['id'], label=point['label'], evidence=evidence))
     example = bool(re.search(r'\b(found|discovered|noticed|identified)\b', answer, re.I) and re.search(r'\b(retested|verified|fixed|resolved|confirmed)\b', answer, re.I))
+    meaningful_start = len(words) >= 8 and bool(re.search(r'\b(i|we)\b.*\b(would|use|run|check|test|verify|measure)\b', answer, re.I))
+    # Merely saying "limitation" (or denying a need for visual review) is not evidence.
+    limitation = any(
+        re.search(r'\b(complementary visual review|requires? visual checks|needs? visual checks)\b', s)
+        and not re.search(r"\b(no|not|never|don't|ignore)\b", s)
+        or re.search(r'\bcannot detect\s+(?:\w+\s+){1,5}\w+', s)
+        for s in sentences)
     missing = [p['label'] for p in question['rubric'] if p['id'] not in {c['id'] for c in covered}]
     if stuck(answer):
         strength = 'No problem. This is a safe place to practise.'
         step = 'Would you like a hint, a sample answer, or to skip this one?'
     elif not explanatory:
-        strength = 'Thank you for making a start. I need an explanation, not just a few terms, to offer useful feedback.'
+        strength = ('That is a useful starting point. Let us develop your working method.' if meaningful_start else
+                    'Thank you for making a start. I need an explanation, not just a few terms, to offer useful feedback.')
         step = 'Tell me what you would do, which tool you would use, and how you would check the result.'
     elif covered:
         strength = 'You described ' + covered[0]['label'] + '.'
         step = ('Next, explain ' + missing[0] + ' with a practical step.' if missing else
+                'You included a concrete example and a limitation. Practise explaining this clearly in under a minute.' if example and limitation else
                 'You included a concrete example. Now explain one trade-off or limitation.' if example else
                 'If you have not already, give a real example: the situation, what you found, and how you checked the fix.')
     else:

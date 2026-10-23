@@ -13,7 +13,8 @@ def test_first_answer_has_actionable_coaching_and_retry(monkeypatch):
     monkeypatch.delenv('BEDROCK_MODEL_ID', raising=False)
     session = coach.start_session('accessibility')['session_id']
     feedback = coach.evaluate_answer(session, 'I would run an automated accessibility checker and fix the errors it finds.')
-    assert 'explanation' in feedback['strength']
+    assert 'useful starting point' in feedback['strength']
+    assert 'not just a few terms' not in feedback['strength']
     assert 'Say retry' in feedback['spoken_summary']
     assert len(feedback['spoken_summary'].split()) < 80
     assert coach.retry_question(session)['number'] == 1

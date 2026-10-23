@@ -46,3 +46,15 @@ def next_question(session_id: str) -> dict:
 @mcp.tool(name="end_session", description="End a session and return a spoken-friendly practice summary.")
 def end_session(session_id: str) -> dict:
     return coach.end_session(session_id)
+
+
+@mcp.tool(name="surprise_question", description="Optional AI bonus question using Amazon Bedrock; regular practice position is preserved.")
+def surprise_question(session_id: str) -> dict:
+    from ability_ai.surprise_round import run
+    return run(coach._session(session_id), 'question')
+
+
+@mcp.tool(name="evaluate_surprise", description="Bedrock feedback only for the active surprise question; learner answers are not retained.")
+def evaluate_surprise(session_id: str, answer_text: str) -> dict:
+    from ability_ai.surprise_round import run
+    return run(coach._session(session_id), 'answer', answer_text)

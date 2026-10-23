@@ -35,6 +35,8 @@
     <label for="answer">Your answer</label><textarea id="answer" rows="7" placeholder="Type your answer here, or use Speak your answer."></textarea>
     <div class="coach-actions"><button id="listen" type="button" class="btn btn-secondary">Speak your answer</button><button id="submit" type="button" class="btn btn-primary">Get feedback</button></div>
     <p id="voice-status" role="status" class="coach-muted">Microphone is off. It is requested when you choose voice practice.</p>
+    <p>Optional AI surprise round: say “surprise me” for a new question in your selected track. Say “back to practice” to return. Bonus answers are sent to Amazon Bedrock for AI feedback, which can make mistakes. Avoid personal or confidential information.</p>
+    <div class="coach-actions"><button id="surprise" type="button" class="btn btn-secondary">Surprise me — AI bonus question</button><button id="back-practice" type="button" class="btn btn-secondary" hidden>Back to regular practice</button></div>
     <div id="feedback" class="coach-feedback" tabindex="-1" role="status" aria-live="polite" hidden></div>
     <div class="coach-actions"><button id="hint" type="button" class="btn btn-secondary">Give me a hint</button><button id="sample" type="button" class="btn btn-secondary">Sample answer structure</button><button id="skip" type="button" class="btn btn-secondary">Skip this question</button></div>
     <div class="coach-actions"><button id="retry" type="button" class="btn btn-secondary" hidden>Retry this answer</button><button id="next" type="button" class="btn btn-primary" hidden>Next question</button></div>
@@ -42,5 +44,5 @@
   <div class="coach-card" id="summary-card" hidden><h2>Practice summary</h2><div id="summary" role="status" aria-live="polite"></div><button id="again" type="button" class="btn btn-primary">Practice again</button></div>
   <aside class="coach-privacy" aria-labelledby="coach-privacy-heading"><h2 id="coach-privacy-heading">Privacy and accessibility</h2><p>Vision-Aid does not retain your answers. When coach-server feedback is available, your answer is sent only to the coach server and its configured AI service to generate practice feedback. Speech recognition depends on browser support and may be processed by the browser provider. Typing remains available at every step.</p></aside>
 </div></section>
-<script src="{{ url_for('static', filename='js/interview_coach.js') }}?v=3.5.20" defer></script>
+<script src="{{ url_for('static', filename='js/interview_coach.js') }}?v=3.5.21" defer></script>
 {% endblock %}

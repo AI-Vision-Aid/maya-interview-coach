@@ -5,6 +5,35 @@
   var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   var voices = [], sessionId = null, mcpSessionId = null, rpcId = 0;
   var current = null, voiceFirst = true, serverReady = false;
+  var regularQuestion = null, bonusBusy = false;
+  function spokenPromise(text) { return new Promise(function (resolve) { if (voiceFirst) { say(text, resolve); } else { resolve(); } }); }
+  function bonusNotice(text) {
+    $('voice-status').textContent = text;
+    if (voiceFirst) { say(text, function () { command(0); }); }
+  }
+  async function surprise() {
+    if (bonusBusy || evaluating || isListening) { return; }
+    if (!serverReady || !sessionId) { bonusNotice('Bonus questions need a connection to Maya. Regular practice is still available.'); return; }
+    bonusBusy = true; $('surprise').disabled = true;
+    $('voice-status').textContent = 'Preparing an optional AI surprise question. Your regular place is saved.';
+    try {
+      var acknowledgement = spokenPromise('Let us try a surprise question. I am preparing one for your selected track.');
+      var result = await callTool('surprise_question', {session_id:sessionId});
+      await acknowledgement;
+      if (!result.available) { bonusNotice(result.spoken_summary); return; }
+      if (!regularQuestion) { regularQuestion = current; }
+      current = {bonus:true, question:result.question, track:regularQuestion.track, number:regularQuestion.number, total:regularQuestion.total};
+      lastFeedback = {hint:result.hint}; $('back-practice').hidden = false;
+      announceQuestion();
+    } catch (_) { bonusNotice('The surprise round could not connect. Say back to practice to continue your regular interview.'); }
+    finally { bonusBusy = false; $('surprise').disabled = false; }
+  }
+  function backToPractice() {
+    if (bonusBusy || evaluating) { return; }
+    if (regularQuestion) { current = regularQuestion; regularQuestion = null; lastFeedback = null; }
+    $('back-practice').hidden = true;
+    announceQuestion();
+  }
   // One audio channel for Maya.  This prevents rapid taps or a slow network
   // response from leaving two versions of the coach speaking at once.
   var activeAudio = null, activeAudioUrl = null, activeAudioSource = null, playbackToken = 0;
@@ -151,10 +180,10 @@
   }
   function selectedTrack() { return document.querySelector("input[name=track]:checked").value; }
   function announceQuestion(questionWasAlreadySpoken) {
-    $("progress").textContent = "Question " + current.number + " of " + current.total;
+    $("progress").textContent = current.bonus ? 'AI surprise round — regular practice is saved' : "Question " + current.number + " of " + current.total;
     $("track-title").textContent = current.track; $("question").textContent = current.question; $("answer").value = "";
     $("feedback").hidden = true; $("retry").hidden = true; $("next").hidden = true; $("submit").hidden = false; $("question").focus();
-    if (voiceFirst && !questionWasAlreadySpoken) { say("Question " + current.number + ". " + current.question + " I will listen after a short pause. You may say repeat question at any time.", function () { window.setTimeout(function () { listen(0); }, 350); }); }
+    if (voiceFirst && !questionWasAlreadySpoken) { say((current.bonus ? 'Surprise question. ' : "Question " + current.number + ". ") + current.question + " I will listen after a short pause. You may say repeat question at any time.", function () { window.setTimeout(function () { listen(0); }, 350); }); }
     if (voiceFirst && questionWasAlreadySpoken) { $("voice-status").textContent = "Maya is listening now. Speak your answer when you are ready."; window.setTimeout(function () { listen(0); }, 350); }
   }
   function fallbackStart(trackId, questionWasAlreadySpoken) {
@@ -188,16 +217,24 @@
   }
   var lastFeedback = null, evaluating = false;
   function help(kind) {
+    if (bonusBusy || evaluating) { return; }
     var text = lastFeedback && lastFeedback[kind] || (kind === 'hint' ? 'Explain your method, the tools you use, and how you check the result.' : 'Describe a real task, the action you took, and what you verified. Use your own experience.');
     $('feedback').hidden = false; $('feedback').textContent = text; $('feedback').focus();
     if (voiceFirst) { say(text + ' You can now try your answer, or say skip.', function () { listen(0); }); }
   }
   async function evaluate() {
-    if (evaluating) { return; }
+    if (evaluating || bonusBusy) { return; }
     var answer = $("answer").value.trim(); if (!answer) { $("feedback").textContent = "Please give an answer before requesting feedback."; $("feedback").hidden = false; return; }
     var feedback; evaluating = true; $('submit').disabled = true; $('voice-status').textContent = 'Your answer is received. Preparing feedback.';
-    try { feedback = serverReady && sessionId ? await callTool("evaluate_answer", {session_id: sessionId, answer_text: answer, input_mode: voiceFirst ? "speech" : "typed"}) : offlineEvaluate(answer); }
-    catch (_) { feedback = offlineEvaluate(answer); serverStatus("The AI coach is temporarily unavailable. Offline practice feedback is active.", false); }
+    try {
+      if (current.bonus) {
+        var acknowledged = spokenPromise('Thank you. I am preparing feedback for your bonus answer.');
+        feedback = await callTool('evaluate_surprise', {session_id:sessionId, answer_text:answer});
+        await acknowledged;
+        if (!feedback.available) { evaluating = false; $('submit').disabled = false; bonusNotice(feedback.spoken_summary); return; }
+      } else { feedback = serverReady && sessionId ? await callTool("evaluate_answer", {session_id: sessionId, answer_text: answer, input_mode: voiceFirst ? "speech" : "typed"}) : offlineEvaluate(answer); }
+    }
+    catch (_) { if (current.bonus) { evaluating = false; $('submit').disabled = false; bonusNotice('Bonus feedback could not connect. Say retry or back to practice.'); return; } feedback = offlineEvaluate(answer); serverStatus("The coach is temporarily unavailable. Offline practice feedback is active.", false); }
     evaluating = false; $('submit').disabled = false; lastFeedback = feedback;
     $('voice-status').textContent = 'Feedback is ready. Choose retry, help, or next question.';
     var detail = feedback.missing && feedback.missing.length ? " Areas to explore: " + feedback.missing.slice(0, 2).join(" and ") + "." : "";
@@ -205,9 +242,11 @@
     $("feedback").textContent = feedbackSource + ". " + (feedback.comparison || '') + (feedback.stuck ? '' : (feedback.signal_label || 'This is practice guidance, not a correctness score.')) + ' ' + feedback.strength + " " + feedback.next_step + detail + " " + (feedback.retry_prompt || "Try again using this feedback, or continue to the next question.");
     $('feedback').hidden = false; $('feedback').focus();
     $("feedback").hidden = false; $("submit").hidden = true; $("retry").hidden = false; $("next").hidden = false; $("next").textContent = current.number === current.total ? "Finish practice" : "Next question";
-    if (voiceFirst) { say((feedback.spoken_summary || (feedback.strength + " " + feedback.next_step)) + (feedback.retry_prompt ? "" : " Would you like to try again? Say retry or next question."), command); }
+    if (voiceFirst) { say((feedback.spoken_summary || (feedback.strength + " " + feedback.next_step)) + (feedback.retry_prompt ? "" : " Would you like to try again? Say retry or next question.") + (current.bonus ? '' : ' For an optional AI bonus question, say surprise me.'), command); }
   }
   async function next() {
+    if (bonusBusy || evaluating) { return; }
+    if (current && current.bonus) { backToPractice(); return; }
     if (serverReady && sessionId) { try { var reply = await callTool("next_question", {session_id: sessionId}); if (reply.complete) { finish(reply); } else { current = reply; announceQuestion(); } return; } catch (_) { serverReady = false; } }
     var track = fallbackTracks[selectedTrack()]; fallbackIndex += 1;
     if (fallbackIndex >= track.qs.length) { finish({questions_practiced: fallbackScores.length, best_coverage_percent: Math.max.apply(Math, fallbackScores.concat([0]))}); return; }
@@ -251,8 +290,11 @@
     try { recognizer.start(); } catch (_) { isListening = false; microphoneFailure("start"); }
   }
   function listen(attempt) {
+    if (bonusBusy || evaluating) { return; }
     recognize(function (text) {
       var spoken = text.toLowerCase();
+      if (/surprise|bonus question/.test(spoken)) { surprise(); return; }
+      if (/back to|regular practice/.test(spoken)) { backToPractice(); return; }
       if (/^(skip|pass|next question)[.!?]*$/.test(spoken)) { next(); return; } if (spoken.indexOf("hint") !== -1) { help("hint"); return; } if (spoken.indexOf("sample") !== -1) { help("sample_answer"); return; } if (spoken.indexOf("repeat") !== -1) { announceQuestion(); return; }
       $("answer").value = text; $("voice-status").textContent = "I heard your answer. Maya is preparing feedback now."; evaluate();
     }, null, function () {
@@ -275,7 +317,22 @@
       return false;
     }
   }
-  function command(attempt) { recognize(function (text) { var commandText = text.toLowerCase(); if (commandText.indexOf("skip") !== -1) { next(); return; } if (commandText.indexOf("hint") !== -1) { help("hint"); return; } if (commandText.indexOf("sample") !== -1) { help("sample_answer"); return; } if (commandText.indexOf("retry") !== -1) { $("retry").click(); } else if (commandText.indexOf("next") !== -1 || commandText.indexOf("continue") !== -1) { next(); } else if (commandText.indexOf("more") !== -1 || commandText.indexOf("repeat") !== -1) { say($("feedback").textContent + " Say retry or next question.", function () { command(0); }); } else { say("I heard you. Please say retry, next question, repeat feedback, or more detail.", function () { command(0); }); } }, null, function () { if ((attempt || 0) < 1) { say("What would you like to do? Say retry, next question, repeat feedback, or more detail.", function () { command(1); }); } else { $("voice-status").textContent = "Choose Retry this answer or Next question, or select Speak your answer to give Maya a voice command."; } }); }
+  function command(attempt) {
+    recognize(function (text) {
+      var commandText = text.toLowerCase();
+      if (/surprise|bonus question/.test(commandText)) { surprise(); return; }
+      if (/back to|regular practice/.test(commandText)) { backToPractice(); return; }
+      if (/skip|next|continue/.test(commandText)) { next(); return; }
+      if (/hint/.test(commandText)) { help('hint'); return; }
+      if (/sample/.test(commandText)) { help('sample_answer'); return; }
+      if (/retry/.test(commandText)) { $('retry').click(); return; }
+      if (/more|repeat/.test(commandText)) { say($('feedback').textContent + ' Say retry, next question, or surprise me.', function () { command(0); }); return; }
+      say('Please say retry, next question, surprise me, or back to practice.', function () { command(1); });
+    }, null, function () {
+      if ((attempt || 0) < 1) { say('Say retry, next question, surprise me, or back to practice.', function () { command(1); }); }
+      else { $('voice-status').textContent = 'Your place is saved. Select Speak your answer to give Maya a command, or use the buttons.'; }
+    });
+  }
   function playWelcome(trackId, done) {
     // The welcome and first question are one tap-playable MP3.  On iPhone and
     // Android this avoids the autoplay boundary between the orientation and
@@ -310,9 +367,10 @@
     $("voice-status").textContent = "Maya is preparing your practice session.";
     playWelcome(selectedTrack(), function () { preparedSession.then(function (start) { begin(true, start, true); }).finally(function () { isLaunching = false; }); });
   }; $("begin-typing").onclick = function () { begin(false); }; $("listen").onclick = function () { if (!$("feedback").hidden) { command(0); } else { listen(0); } }; $("submit").onclick = evaluate;
-  $("retry").onclick = function () { $("answer").focus(); $("answer").select(); $("feedback").hidden = true; $("submit").hidden = false; $("retry").hidden = true; $("next").hidden = true; if (voiceFirst) { say("Let's try the same question again. " + current.question + " Use the feedback to add a concrete example. I will listen after a short pause.", function () { window.setTimeout(function () { listen(0); }, 350); }); } };
+  $("retry").onclick = function () { if (bonusBusy || evaluating) { return; } $("answer").focus(); $("answer").select(); $("feedback").hidden = true; $("submit").hidden = false; $("retry").hidden = true; $("next").hidden = true; if (voiceFirst) { say("Let's try the same question again. " + current.question + " Use the feedback to add a concrete example. I will listen after a short pause.", function () { window.setTimeout(function () { listen(0); }, 350); }); } };
   $("next").onclick = next; $("again").onclick = function () { $("start").hidden = false; $("summary-card").hidden = true; current = null; document.querySelectorAll('input[name=track]').forEach(function (radio) { radio.disabled = false; }); $("begin").disabled = false; $("begin").removeAttribute("aria-disabled"); $("begin").textContent = "Start Maya voice practice"; };
   if (!Recognition) { $("listen").disabled = true; }
   $("hint").onclick = function () { help("hint"); }; $("sample").onclick = function () { help("sample_answer"); }; $("skip").onclick = next;
+  $('surprise').onclick = surprise; $('back-practice').onclick = backToPractice;
   connectCoach();
 }());
