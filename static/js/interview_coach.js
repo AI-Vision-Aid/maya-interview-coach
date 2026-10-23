@@ -17,7 +17,7 @@
     bonusBusy = true; $('surprise').disabled = true;
     $('voice-status').textContent = 'Preparing an optional AI surprise question. Your regular place is saved.';
     try {
-      var acknowledgement = spokenPromise('Let us try a surprise question. I am preparing one for your selected track.');
+      var acknowledgement = spokenPromise('Let us try an AI surprise question. Bonus answers go to Amazon Bedrock for coaching. Avoid personal information. I am preparing your question.');
       var result = await callTool('surprise_question', {session_id:sessionId});
       await acknowledgement;
       if (!result.available) { bonusNotice(result.spoken_summary); return; }
@@ -241,7 +241,7 @@
     var feedbackSource = feedback.mode === "bedrock" ? "AWS Bedrock practice feedback" : "Practice feedback";
     $("feedback").textContent = feedbackSource + ". " + (feedback.comparison || '') + (feedback.stuck ? '' : (feedback.signal_label || 'This is practice guidance, not a correctness score.')) + ' ' + feedback.strength + " " + feedback.next_step + detail + " " + (feedback.retry_prompt || "Try again using this feedback, or continue to the next question.");
     $('feedback').hidden = false; $('feedback').focus();
-    $("feedback").hidden = false; $("submit").hidden = true; $("retry").hidden = false; $("next").hidden = false; $("next").textContent = current.number === current.total ? "Finish practice" : "Next question";
+    $("feedback").hidden = false; $("submit").hidden = true; $("retry").hidden = false; $("next").hidden = false; $("next").textContent = current.bonus ? 'Back to regular practice' : current.number === current.total ? "Finish practice" : "Next question";
     if (voiceFirst) { say((feedback.spoken_summary || (feedback.strength + " " + feedback.next_step)) + (feedback.retry_prompt ? "" : " Would you like to try again? Say retry or next question.") + (current.bonus ? '' : ' For an optional AI bonus question, say surprise me.'), command); }
   }
   async function next() {
