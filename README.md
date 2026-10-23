@@ -18,8 +18,10 @@ staff tools, deployment credentials, and private platform code.
   audio require user permission and a user gesture; hosted use requires HTTPS.
 - **Not a certified or publicly enabled Alexa skill.** This is an Alexa+-style
   web simulation. A backend alone does not establish Alexa distribution.
-- The hosted Ability Bazaar build may lag this standalone source. The October
-  21 film shows its actual rubric fallback, not verified live Bedrock feedback.
+- The optional Bedrock surprise round was verified through live hosted checks
+  on October 22, including question generation, feedback and return to regular
+  practice. The demonstration film shows regular rubric-based coaching with
+  a simulated learner voice; it does not demonstrate the AWS bonus round.
 - Rubric coverage is a practice signal, not a validated assessment of competence,
   employability, disability, or hiring suitability. No job outcome is promised.
 
@@ -99,9 +101,13 @@ without microphone availability.
 
 Friction: phone autoplay/microphone handoffs need careful state management;
 long or repeated audio requests can overlap without cancellation; cloud model
-access and authentication failures need clear fallback status. The original
-hosted build's Bedrock path still requires end-to-end validation. These are
-observations and known limitations, not claims of completed certification.
+access and authentication failures need clear fallback status. The optional
+Bedrock surprise round has been verified through the deployed service and
+browser flow. Regular coaching remains rubric-based. Long spoken answers
+can still end prematurely in browser recognition and need further work;
+typed or service-level checks do not establish physical-device microphone
+reliability. Alexa integration, device testing and certification remain next
+steps.
 
 ## License and scope
 
